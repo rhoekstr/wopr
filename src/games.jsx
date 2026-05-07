@@ -3131,14 +3131,14 @@ function Menu({ onSelect }) {
             key={game.id}
             onClick={() => onSelect(game.id)}
             style={{
-              background: "transparent",
-              border: "1px solid #1e1e1e",
+              background: `${game.accent}10`,
+              border: `2px solid ${game.accent}66`,
               borderRadius: "8px",
               padding: "20px 24px",
               cursor: "pointer",
               textAlign: "left",
               fontFamily: "'Courier New', monospace",
-              color: "#e8e8e8",
+              color: "#fff",
               transition: "all 0.2s",
               display: "flex",
               alignItems: "center",
@@ -3146,25 +3146,25 @@ function Menu({ onSelect }) {
             }}
             onMouseEnter={e => {
               e.currentTarget.style.borderColor = game.accent;
-              e.currentTarget.style.background = `${game.accent}08`;
+              e.currentTarget.style.background = `${game.accent}22`;
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderColor = "#1e1e1e";
-              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = `${game.accent}66`;
+              e.currentTarget.style.background = `${game.accent}10`;
             }}
           >
             <div style={{ fontSize: game.iconSize || "22px", letterSpacing: "0.1em", color: game.accent, minWidth: "52px", textAlign: "center", whiteSpace: "pre", lineHeight: game.iconLineHeight || 1.15 }}>
               {game.icon}
             </div>
             <div>
-              <div style={{ fontSize: "13px", fontWeight: "bold", letterSpacing: "0.08em", marginBottom: "4px", color: "#fff" }}>
+              <div style={{ fontSize: "14px", fontWeight: "bold", letterSpacing: "0.08em", marginBottom: "4px", color: "#fff" }}>
                 {game.label}
               </div>
-              <div style={{ fontSize: "10px", color: "#aaa", letterSpacing: "0.12em" }}>
+              <div style={{ fontSize: "11px", color: "#ddd", letterSpacing: "0.1em" }}>
                 {game.desc}
               </div>
             </div>
-            <div style={{ marginLeft: "auto", fontSize: "16px", color: "#333" }}>›</div>
+            <div style={{ marginLeft: "auto", fontSize: "20px", color: game.accent, fontWeight: "bold" }}>›</div>
           </button>
         ))}
       </div>
