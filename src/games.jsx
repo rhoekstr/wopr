@@ -13,12 +13,12 @@ function ModeBar({ mode, onChange }) {
     <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
       {MODES.map(m => (
         <button key={m} onClick={() => onChange(m)} style={{
-          background: mode === m ? "#e8e8e8" : "transparent",
-          border: `1px solid ${mode === m ? "#e8e8e8" : "#666"}`,
-          color: mode === m ? "#0a0a0a" : "#bbb",
+          background: mode === m ? "#fff" : "transparent",
+          border: `2px solid ${mode === m ? "#fff" : "#888"}`,
+          color: mode === m ? "#0a0a0a" : "#ddd",
           padding: "5px 10px", fontSize: "9px", letterSpacing: "0.12em",
           textTransform: "uppercase", cursor: "pointer", borderRadius: "3px",
-          fontFamily: "'Courier New', monospace", fontWeight: mode === m ? "bold" : "normal",
+          fontFamily: "'Courier New', monospace", fontWeight: "bold",
           transition: "all 0.15s"
         }}>{MODE_LABELS[m]}</button>
       ))}
@@ -32,11 +32,11 @@ function DiffBar({ difficulty, onChange, color }) {
       {DIFFICULTIES.map(d => (
         <button key={d} onClick={() => onChange(d)} style={{
           background: difficulty === d ? DIFF_COLORS[d] : "transparent",
-          border: `1px solid ${difficulty === d ? DIFF_COLORS[d] : "#555"}`,
-          color: difficulty === d ? "#0a0a0a" : "#aaa",
+          border: `2px solid ${difficulty === d ? DIFF_COLORS[d] : "#777"}`,
+          color: difficulty === d ? "#0a0a0a" : "#ddd",
           padding: "3px 8px", fontSize: "8px", letterSpacing: "0.15em",
           textTransform: "uppercase", cursor: "pointer", borderRadius: "3px",
-          fontFamily: "'Courier New', monospace", fontWeight: difficulty === d ? "bold" : "normal",
+          fontFamily: "'Courier New', monospace", fontWeight: "bold",
           transition: "all 0.15s"
         }}>{DIFF_LABELS[d]}</button>
       ))}
@@ -48,15 +48,33 @@ function BackButton({ onBack }) {
   return (
     <button onClick={onBack} style={{
       position: "absolute", top: "14px", left: "14px", zIndex: 50,
-      background: "rgba(0,0,0,0.5)", border: "1px solid #888",
-      color: "#ddd", padding: "6px 12px", fontSize: "10px",
+      background: "rgba(0,0,0,0.6)", border: "2px solid #ddd",
+      color: "#fff", padding: "6px 12px", fontSize: "10px",
       letterSpacing: "0.2em", textTransform: "uppercase",
       cursor: "pointer", borderRadius: "3px", fontWeight: "bold",
       fontFamily: "'Courier New', monospace", transition: "all 0.15s",
     }}
-    onMouseEnter={e => { e.currentTarget.style.borderColor = "#fff"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "rgba(0,0,0,0.7)"; }}
-    onMouseLeave={e => { e.currentTarget.style.borderColor = "#888"; e.currentTarget.style.color = "#ddd"; e.currentTarget.style.background = "rgba(0,0,0,0.5)"; }}
+    onMouseEnter={e => { e.currentTarget.style.borderColor = "#fff"; e.currentTarget.style.background = "rgba(0,0,0,0.85)"; }}
+    onMouseLeave={e => { e.currentTarget.style.borderColor = "#ddd"; e.currentTarget.style.background = "rgba(0,0,0,0.6)"; }}
     >← Menu</button>
+  );
+}
+
+// "by awryLabs" credit — shown in the same top-center position on every screen.
+function AwryCredit() {
+  return (
+    <a href="https://www.awrylabs.com" target="_blank" rel="noopener noreferrer" style={{
+      position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
+      zIndex: 40,
+      fontSize: 9, letterSpacing: "0.3em",
+      color: "#888", textDecoration: "none",
+      fontFamily: "'Courier New', monospace", fontWeight: "bold",
+      textTransform: "uppercase",
+      transition: "color 0.15s",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.color = "#fff"; }}
+    onMouseLeave={e => { e.currentTarget.style.color = "#888"; }}
+    >by awryLabs ↗</a>
   );
 }
 
@@ -243,6 +261,7 @@ function TicTacToe({ onBack }) {
       padding: "24px", position: "relative"
     }}>
       <BackButton onBack={onBack} />
+      <AwryCredit />
       <div style={{ fontSize: "12px", letterSpacing: "0.4em", color: "#888", textTransform: "uppercase", marginBottom: "10px", fontWeight: "bold" }}>
         Tic-Tac-Toe
       </div>
@@ -285,7 +304,7 @@ function TicTacToe({ onBack }) {
         })}
       </div>
       <button onClick={handleNewGame} style={{
-        background: "transparent", border: "1px solid #999", color: "#ddd",
+        background: "transparent", border: "2px solid #ddd", color: "#fff",
         padding: "9px 24px", fontSize: "10px", letterSpacing: "0.3em",
         textTransform: "uppercase", cursor: "pointer", borderRadius: "3px", fontWeight: "bold",
         fontFamily: "'Courier New', monospace", transition: "all 0.2s"
@@ -561,6 +580,7 @@ function Connect4({ onBack }) {
       padding: "12px", userSelect: "none", position: "relative"
     }}>
       <BackButton onBack={onBack} />
+      <AwryCredit />
       <div style={{ fontSize: "12px", letterSpacing: "0.5em", color: "#7090c0", textTransform: "uppercase", marginBottom: "6px", fontWeight: "bold" }}>
         Connect Four
       </div>
@@ -645,7 +665,7 @@ function Connect4({ onBack }) {
         </div>
       </div>
       <button onClick={handleNewGame} style={{
-        background: "transparent", border: "1px solid #8ab0d0", color: "#cfe2f5",
+        background: "transparent", border: "2px solid #cfe2f5", color: "#fff",
         padding: "8px 20px", fontSize: "10px", letterSpacing: "0.3em",
         textTransform: "uppercase", cursor: "pointer", borderRadius: "3px", fontWeight: "bold",
         fontFamily: "'Courier New', monospace", transition: "all 0.2s"
@@ -888,19 +908,20 @@ function DotsAndBoxes({ onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: "#111009", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Courier New', monospace", color: "#d4c9b0", padding: "16px", userSelect: "none", position: "relative" }}>
       <BackButton onBack={onBack} />
+      <AwryCredit />
       <div style={{ fontSize: "10px", letterSpacing: "0.5em", color: "#5a5040", textTransform: "uppercase", marginBottom: "4px" }}>Dots & Boxes</div>
       <div style={{ fontSize: "9px", color: "#3a3028", letterSpacing: "0.2em", marginBottom: "10px" }}>Édouard Lucas · 1889</div>
 
       <div style={{ display: "flex", gap: "5px", marginBottom: "7px" }}>
         {MODES.map(m => (
-          <button key={m} onClick={() => changeMode(m)} style={{ background: mode===m?"#d4c9b0":"transparent", border:`1px solid ${mode===m?"#d4c9b0":"#7a7060"}`, color:mode===m?"#111009":"#bba890", padding:"4px 9px", fontSize:"8px", letterSpacing:"0.12em", textTransform:"uppercase", cursor:"pointer", borderRadius:"2px", fontFamily:"'Courier New', monospace", fontWeight:mode===m?"bold":"normal" }}>{MODE_LABELS[m]}</button>
+          <button key={m} onClick={() => changeMode(m)} style={{ background: mode===m?"#d4c9b0":"transparent", border:`2px solid ${mode===m?"#d4c9b0":"#a09280"}`, color:mode===m?"#111009":"#e8dcc0", padding:"4px 9px", fontSize:"8px", letterSpacing:"0.12em", textTransform:"uppercase", cursor:"pointer", borderRadius:"2px", fontFamily:"'Courier New', monospace", fontWeight:"bold" }}>{MODE_LABELS[m]}</button>
         ))}
       </div>
 
       {mode !== "vs-human"
         ? <div style={{ display: "flex", gap: "4px", marginBottom: "7px" }}>
             {DIFFICULTIES.map(d => (
-              <button key={d} onClick={() => { setDifficulty(d); newGame(); }} style={{ background:difficulty===d?DIFF_COLORS[d]:"transparent", border:`1px solid ${difficulty===d?DIFF_COLORS[d]:"#7a7060"}`, color:difficulty===d?"#111009":"#bba890", padding:"3px 7px", fontSize:"8px", letterSpacing:"0.15em", textTransform:"uppercase", cursor:"pointer", borderRadius:"2px", fontFamily:"'Courier New', monospace", fontWeight:difficulty===d?"bold":"normal" }}>{DIFF_LABELS[d]}</button>
+              <button key={d} onClick={() => { setDifficulty(d); newGame(); }} style={{ background:difficulty===d?DIFF_COLORS[d]:"transparent", border:`2px solid ${difficulty===d?DIFF_COLORS[d]:"#a09280"}`, color:difficulty===d?"#111009":"#e8dcc0", padding:"3px 7px", fontSize:"8px", letterSpacing:"0.15em", textTransform:"uppercase", cursor:"pointer", borderRadius:"2px", fontFamily:"'Courier New', monospace", fontWeight:"bold" }}>{DIFF_LABELS[d]}</button>
             ))}
           </div>
         : <div style={{ height: "21px", marginBottom: "7px" }} />}
@@ -908,7 +929,7 @@ function DotsAndBoxes({ onBack }) {
       <div style={{ display: "flex", gap: "5px", marginBottom: "26px", alignItems: "center" }}>
         <span style={{ fontSize: "8px", color: "#a89880", letterSpacing: "0.2em", marginRight: "4px" }}>GRID</span>
         {DAB_SIZES.map(s => (
-          <button key={s} onClick={() => changeN(s)} style={{ background:N===s?"#8a7a60":"transparent", border:`1px solid ${N===s?"#8a7a60":"#7a7060"}`, color:N===s?"#111009":"#bba890", padding:"3px 8px", fontSize:"8px", letterSpacing:"0.1em", cursor:"pointer", borderRadius:"2px", fontFamily:"'Courier New', monospace", fontWeight:N===s?"bold":"normal" }}>{s}×{s}</button>
+          <button key={s} onClick={() => changeN(s)} style={{ background:N===s?"#8a7a60":"transparent", border:`2px solid ${N===s?"#8a7a60":"#a09280"}`, color:N===s?"#111009":"#e8dcc0", padding:"3px 8px", fontSize:"8px", letterSpacing:"0.1em", cursor:"pointer", borderRadius:"2px", fontFamily:"'Courier New', monospace", fontWeight:"bold" }}>{s}×{s}</button>
         ))}
       </div>
 
@@ -1430,6 +1451,7 @@ function GoGame({ onBack }) {
       padding: "16px", userSelect: "none", position: "relative",
     }}>
       <BackButton onBack={onBack} />
+      <AwryCredit />
       <div style={{ fontSize: "10px", letterSpacing: "0.5em", color: "#5a4a28", textTransform: "uppercase", marginBottom: "4px" }}>Go</div>
       <div style={{ fontSize: "9px", color: "#3a3018", letterSpacing: "0.2em", marginBottom: "10px" }}>圍棋 · 2500 years old</div>
 
@@ -1437,11 +1459,11 @@ function GoGame({ onBack }) {
         {MODES.map(m => (
           <button key={m} onClick={() => changeMode(m)} style={{
             background: mode===m ? "#d4c9a8" : "transparent",
-            border: `1px solid ${mode===m ? "#d4c9a8" : "#7a6a40"}`,
-            color: mode===m ? "#1a1208" : "#bba880",
+            border: `2px solid ${mode===m ? "#d4c9a8" : "#a89870"}`,
+            color: mode===m ? "#1a1208" : "#e8dcc0",
             padding: "4px 9px", fontSize: "8px", letterSpacing: "0.12em",
             textTransform: "uppercase", cursor: "pointer", borderRadius: "2px",
-            fontFamily: "'Courier New', monospace", fontWeight: mode===m ? "bold" : "normal",
+            fontFamily: "'Courier New', monospace", fontWeight: "bold",
           }}>{MODE_LABELS[m]}</button>
         ))}
       </div>
@@ -1451,11 +1473,11 @@ function GoGame({ onBack }) {
             {GO_DIFFICULTIES.map(d => (
               <button key={d} onClick={() => { setDifficulty(d); newGame(); }} style={{
                 background: difficulty===d ? DIFF_COLORS[d] : "transparent",
-                border: `1px solid ${difficulty===d ? DIFF_COLORS[d] : "#7a6a40"}`,
-                color: difficulty===d ? "#1a1208" : "#bba880",
+                border: `2px solid ${difficulty===d ? DIFF_COLORS[d] : "#a89870"}`,
+                color: difficulty===d ? "#1a1208" : "#e8dcc0",
                 padding: "3px 7px", fontSize: "8px", letterSpacing: "0.15em",
                 textTransform: "uppercase", cursor: "pointer", borderRadius: "2px",
-                fontFamily: "'Courier New', monospace", fontWeight: difficulty===d ? "bold" : "normal",
+                fontFamily: "'Courier New', monospace", fontWeight: "bold",
               }}>{DIFF_LABELS[d]}</button>
             ))}
           </div>
@@ -1466,11 +1488,11 @@ function GoGame({ onBack }) {
         {GO_SIZES.map(s => (
           <button key={s} onClick={() => changeN(s)} style={{
             background: N===s ? "#8a7a40" : "transparent",
-            border: `1px solid ${N===s ? "#8a7a40" : "#7a6a40"}`,
-            color: N===s ? "#1a1208" : "#bba880",
+            border: `2px solid ${N===s ? "#8a7a40" : "#a89870"}`,
+            color: N===s ? "#1a1208" : "#e8dcc0",
             padding: "3px 8px", fontSize: "8px", letterSpacing: "0.1em",
             cursor: "pointer", borderRadius: "2px",
-            fontFamily: "'Courier New', monospace", fontWeight: N===s ? "bold" : "normal",
+            fontFamily: "'Courier New', monospace", fontWeight: "bold",
           }}>{s}×{s}</button>
         ))}
       </div>
@@ -1559,7 +1581,7 @@ function GoGame({ onBack }) {
         {!gs.done && mode !== "cpu-cpu" && (
           <button onClick={handlePass} disabled={isCpuTurn} style={{
             background: "transparent",
-            border: `1px solid ${isCpuTurn ? "#5a4a28" : "#d4c9a8"}`,
+            border: `2px solid ${isCpuTurn ? "#5a4a28" : "#f0e8c8"}`,
             color: isCpuTurn ? "#5a4a28" : "#f0e8c8",
             padding: "8px 18px", fontSize: "10px", letterSpacing: "0.25em",
             textTransform: "uppercase", cursor: isCpuTurn ? "default" : "pointer",
@@ -1571,7 +1593,7 @@ function GoGame({ onBack }) {
           >Pass</button>
         )}
         <button onClick={newGame} style={{
-          background: "transparent", border: "1px solid #d4c9a8", color: "#f0e8c8",
+          background: "transparent", border: "2px solid #f0e8c8", color: "#fff",
           padding: "8px 20px", fontSize: "10px", letterSpacing: "0.3em",
           textTransform: "uppercase", cursor: "pointer", borderRadius: "2px",
           fontWeight: "bold", fontFamily: "'Courier New', monospace", transition: "all 0.2s",
@@ -2128,7 +2150,7 @@ function WOPR_HelpModal({ onClose }) {
       <div onClick={e => e.stopPropagation()} style={{
         marginTop: 24, marginBottom: 24,
         maxWidth: 360, width: "100%",
-        background: WOPR_C.bg, border: `1px solid ${WOPR_C.bright}`,
+        background: WOPR_C.bg, border: `2px solid ${WOPR_C.bright}`,
         padding: 16, borderRadius: 4,
         fontFamily: "'Courier New', monospace",
       }}>
@@ -2137,8 +2159,8 @@ function WOPR_HelpModal({ onClose }) {
             ▸ FIELD MANUAL
           </span>
           <button onClick={onClose} style={{
-            background: "transparent", border: `1px solid ${WOPR_C.bright}`,
-            color: WOPR_C.bright, width: 24, height: 24,
+            background: "transparent", border: `2px solid ${WOPR_C.bright}`,
+            color: WOPR_C.bright, width: 26, height: 26,
             cursor: "pointer", borderRadius: "50%", fontWeight: "bold",
             fontFamily: "'Courier New', monospace", fontSize: 12,
           }} aria-label="Close">✕</button>
@@ -2184,7 +2206,7 @@ function WOPR_HelpModal({ onClose }) {
 
         <button onClick={onClose} style={{
           width: "100%", marginTop: 4,
-          background: "transparent", border: `1px solid ${WOPR_C.hot}`,
+          background: "transparent", border: `2px solid ${WOPR_C.hot}`,
           color: WOPR_C.hot, padding: 8, fontSize: 10,
           letterSpacing: "0.25em", cursor: "pointer", fontWeight: "bold",
           fontFamily: "'Courier New', monospace",
@@ -2754,6 +2776,7 @@ function WOPR({ onBack }) {
         padding: 24, display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center", position: "relative" }}>
         <BackButton onBack={onBack} />
+      <AwryCredit />
         <button onClick={() => setShowHelp(true)} style={{
           position: "absolute", top: 14, right: 14, zIndex: 50,
           background: "rgba(0,0,0,0.5)", border: `1px solid ${WOPR_C.bright}`,
@@ -2784,8 +2807,8 @@ function WOPR({ onBack }) {
             {[["us","USA",WOPR_C.usaCol],["ru","USSR",WOPR_C.ussrCol]].map(([key,lbl,col]) => (
               <button key={key} onClick={() => setHumanSide(key)} style={{
                 background: humanSide === key ? col : "transparent",
-                border: `1px solid ${humanSide === key ? col : WOPR_C.border}`,
-                color: humanSide === key ? WOPR_C.bg : WOPR_C.mid,
+                border: `2px solid ${humanSide === key ? col : col}`,
+                color: humanSide === key ? WOPR_C.bg : col,
                 fontFamily: "'Courier New', monospace",
                 fontSize: 8, letterSpacing: "0.15em", padding: "3px 10px",
                 cursor: "pointer", borderRadius: 2, fontWeight: humanSide === key ? "bold" : "normal",
@@ -2795,7 +2818,7 @@ function WOPR({ onBack }) {
         )}
         <button onClick={startGame} style={{
           marginTop: uiMode === "vs-cpu" ? 4 : 16, width: "100%", maxWidth: 280,
-          background: "transparent", border: `1px solid ${WOPR_C.hot}`,
+          background: "transparent", border: `2px solid ${WOPR_C.hot}`,
           color: WOPR_C.hot, padding: "10px", fontSize: 10,
           letterSpacing: "0.3em", cursor: "pointer",
           fontFamily: "'Courier New', monospace",
@@ -2809,10 +2832,11 @@ function WOPR({ onBack }) {
       fontFamily: "'Courier New', monospace", color: WOPR_C.bright,
       padding: 12, position: "relative" }}>
       <BackButton onBack={onBack} />
+      <AwryCredit />
       <button onClick={() => setShowHelp(true)} style={{
         position: "absolute", top: 14, right: 14, zIndex: 50,
-        background: "rgba(0,0,0,0.5)", border: `1px solid ${WOPR_C.bright}`,
-        color: WOPR_C.bright, width: 28, height: 28,
+        background: "rgba(0,0,0,0.6)", border: `2px solid ${WOPR_C.bright}`,
+        color: WOPR_C.bright, width: 30, height: 30,
         fontSize: 14, fontWeight: "bold",
         cursor: "pointer", borderRadius: "50%",
         fontFamily: "'Courier New', monospace",
@@ -2887,7 +2911,7 @@ function WOPR({ onBack }) {
           {phase === "gameover" ? (
             <div style={{ textAlign: "center" }}>
               <button onClick={restart} style={{
-                background: "transparent", border: `1px solid ${WOPR_C.hot}`,
+                background: "transparent", border: `2px solid ${WOPR_C.hot}`,
                 color: WOPR_C.hot, padding: "8px 16px", fontSize: 9,
                 letterSpacing: "0.3em", cursor: "pointer",
                 fontFamily: "'Courier New', monospace",
@@ -2956,13 +2980,13 @@ function WOPR({ onBack }) {
                 <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                   <button onClick={() => handleAutoAssign(1)} style={{
                     flex: 1, background: "transparent",
-                    border: `1px solid ${WOPR_C.subCol}`, color: WOPR_C.subCol,
+                    border: `2px solid ${WOPR_C.subCol}`, color: WOPR_C.subCol,
                     padding: 7, fontSize: 9, letterSpacing: "0.2em",
                     cursor: "pointer", fontFamily: "'Courier New', monospace", fontWeight: "bold",
                   }}>AUTO ×1</button>
                   <button onClick={() => handleAutoAssign(2)} style={{
                     flex: 1, background: "transparent",
-                    border: `1px solid ${WOPR_C.subCol}`, color: WOPR_C.subCol,
+                    border: `2px solid ${WOPR_C.subCol}`, color: WOPR_C.subCol,
                     padding: 7, fontSize: 9, letterSpacing: "0.2em",
                     cursor: "pointer", fontFamily: "'Courier New', monospace", fontWeight: "bold",
                   }}>AUTO ×2</button>
@@ -2971,7 +2995,7 @@ function WOPR({ onBack }) {
               {activeIsHuman() && phase !== "resolve" && (
                 <button onClick={confirmPhase} style={{
                   width: "100%", background: "transparent",
-                  border: `1px solid ${WOPR_C.hot}`, color: WOPR_C.hot,
+                  border: `2px solid ${WOPR_C.hot}`, color: WOPR_C.hot,
                   padding: 8, fontSize: 9, letterSpacing: "0.25em",
                   cursor: "pointer", fontFamily: "'Courier New', monospace", fontWeight: "bold",
                 }}>
@@ -3083,9 +3107,14 @@ function Menu({ onSelect }) {
       padding: "32px",
       gap: "0",
     }}>
-      <div style={{ fontSize: "10px", letterSpacing: "0.5em", color: "#888", textTransform: "uppercase", marginBottom: "6px", fontWeight: "bold" }}>
-        Awry Labs
-      </div>
+      <a href="https://www.awrylabs.com" target="_blank" rel="noopener noreferrer" style={{
+        fontSize: "10px", letterSpacing: "0.5em", color: "#aaa",
+        textTransform: "uppercase", marginBottom: "6px", fontWeight: "bold",
+        textDecoration: "none", transition: "color 0.15s",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.color = "#fff"; }}
+      onMouseLeave={e => { e.currentTarget.style.color = "#aaa"; }}
+      >Awry Labs ↗</a>
       <div style={{ fontSize: "26px", fontWeight: "bold", letterSpacing: "0.15em", marginBottom: "4px", color: "#00ff41", textShadow: "0 0 8px rgba(0,255,65,0.4)" }}>
         WOPR
       </div>

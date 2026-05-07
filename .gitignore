@@ -4,3 +4,8 @@ dist-ssr
 .DS_Store
 *.local
 .vite
+
+# Editor / tooling local config
+.claude
+.vscode
+.idea
