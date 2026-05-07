@@ -360,7 +360,7 @@ These produce satisfying short games with clear stakes — different from the or
 
 All WOPR functions and constants are prefixed `wopr_*` (lowercase) or `WOPR_*` (uppercase) to avoid collisions with other games' code in the single-file architecture.
 
-## 10. Build, dev, deploy
+## 10. Build & dev
 
 ```bash
 npm install          # one-time setup
@@ -369,63 +369,7 @@ npm run build        # writes dist/
 npm run preview      # serves dist/ locally
 ```
 
-### 10.1 GitHub Pages flow
-
-`.github/workflows/deploy.yml` runs on push to `main` and on `workflow_dispatch`:
-
-1. checkout
-2. setup-node 20 + npm cache
-3. `npm ci` → `npm run build`
-4. `actions/configure-pages@v5` with **`enablement: true`** (auto-creates the Pages site on first run if Pages is off; harmless on subsequent runs)
-5. `actions/upload-pages-artifact@v3` (path `dist/`)
-6. `actions/deploy-pages@v4`
-
-Required workflow permissions (declared at the top of the YAML):
-```yaml
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-```
-
-`public/CNAME` contains `wopr.awrylabs.com` and is copied verbatim into `dist/CNAME` by Vite, which GitHub Pages reads to bind the custom domain. Vite's `base: "/"` works because the custom domain treats the site as root.
-
-### 10.2 First-time bootstrap
-
-If you fork this repo and want to deploy your own copy, two snags can hit on the very first deploy:
-
-1. **Pages site doesn't exist** → `configure-pages` fails until `enablement: true` is set on it (already done in this workflow).
-2. **Default `GITHUB_TOKEN` may lack permission to create a Pages site for a brand-new repo** → even with `enablement: true`, the API can return "Resource not accessible by integration".
-
-If you hit (2), enable Pages once via the `gh` CLI, then let the workflow take over:
-
-```bash
-gh api -X POST /repos/OWNER/REPO/pages -f build_type=workflow
-gh api -X PUT  /repos/OWNER/REPO/pages -f cname=YOUR.CUSTOM.DOMAIN     # optional
-gh api -X PUT  /repos/OWNER/REPO/pages -F https_enforced=true          # after cert provisions
-```
-
-Every push to `main` thereafter rebuilds and redeploys automatically.
-
-### 10.3 DNS setup
-
-`public/CNAME` is checked into the repo and copied to `dist/CNAME` by Vite, which GitHub Pages reads to bind the custom domain. Edit it to your own host if you fork.
-
-For DNS, the relevant constraints (provider-agnostic):
-
-- **Apex domain** → A records pointing at GitHub Pages' apex IPs (current values published in [GitHub's docs](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site#configuring-an-apex-domain)). Add IPv6 AAAA records for completeness.
-- **Subdomain** → CNAME pointing at `<username>.github.io`.
-- **If your DNS provider proxies traffic** (Cloudflare's orange cloud, Fastly, etc.), set the records to **DNS-only / un-proxied** for at least the initial verification + cert provisioning. Proxied lookups return the proxy's IPs, which break GitHub's DNS verification and Let's Encrypt's HTTP-01 challenge. After HTTPS is provisioned and enforced, you can re-enable proxying with the proxy's TLS mode set to "Full" (accepts GitHub's Let's Encrypt cert).
-
-### 10.4 Health check
-
-If something goes wrong with the custom domain or HTTPS, the GitHub Pages health endpoint exposes the live verification state:
-
-```bash
-gh api /repos/OWNER/REPO/pages/health | jq '.domain'
-```
-
-Useful fields: `dns_resolves`, `is_proxied`, `has_cname_record`, `is_cname_to_github_user_domain`, `is_served_by_pages`, `responds_to_https`, `https_error`, `is_https_eligible`.
+Pushes to `main` trigger `.github/workflows/deploy.yml`, which builds and publishes via GitHub Pages. Hosting/DNS specifics aren't part of this app and aren't documented here — see GitHub's Pages docs if you fork and want to deploy your own copy.
 
 ## 11. Accepted limitations / future work
 
