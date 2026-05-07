@@ -390,53 +390,39 @@ permissions:
 
 `public/CNAME` contains `wopr.awrylabs.com` and is copied verbatim into `dist/CNAME` by Vite, which GitHub Pages reads to bind the custom domain. Vite's `base: "/"` works because the custom domain treats the site as root.
 
-### 10.2 First-time bootstrap (one-time)
+### 10.2 First-time bootstrap
 
-The very first deploy after creating the repo had two snags that the workflow alone couldn't solve:
+If you fork this repo and want to deploy your own copy, two snags can hit on the very first deploy:
 
-1. **Pages site didn't exist** → `configure-pages` failed with "Get Pages site failed" until we set `enablement: true`.
-2. **Default `GITHUB_TOKEN` lacks permission to create a Pages site for a brand-new repo** → even with `enablement: true`, the API call returned "Resource not accessible by integration".
+1. **Pages site doesn't exist** → `configure-pages` fails until `enablement: true` is set on it (already done in this workflow).
+2. **Default `GITHUB_TOKEN` may lack permission to create a Pages site for a brand-new repo** → even with `enablement: true`, the API can return "Resource not accessible by integration".
 
-The clean workaround was to enable Pages once via the API with a personal token (the `gh` CLI, which is already authenticated), then let the workflow take over for all future deploys:
+If you hit (2), enable Pages once via the `gh` CLI, then let the workflow take over:
 
 ```bash
-# Enable Pages with build_type=workflow (so deploys come from Actions, not legacy branch builds)
-gh api -X POST /repos/rhoekstr/wopr/pages -f build_type=workflow
-
-# Bind the custom domain
-gh api -X PUT  /repos/rhoekstr/wopr/pages -f cname=wopr.awrylabs.com
-
-# After Let's Encrypt cert provisions (~5–15 min after DNS verifies), enforce HTTPS
-gh api -X PUT  /repos/rhoekstr/wopr/pages -F https_enforced=true
+gh api -X POST /repos/OWNER/REPO/pages -f build_type=workflow
+gh api -X PUT  /repos/OWNER/REPO/pages -f cname=YOUR.CUSTOM.DOMAIN     # optional
+gh api -X PUT  /repos/OWNER/REPO/pages -F https_enforced=true          # after cert provisions
 ```
 
-After that, every push to `main` rebuilds and redeploys automatically; no further manual steps.
+Every push to `main` thereafter rebuilds and redeploys automatically.
 
-### 10.3 DNS setup (Cloudflare)
+### 10.3 DNS setup
 
-For `awrylabs.com`, all records pointing at GitHub Pages are **DNS-only** (proxy off — orange cloud disabled). Cloudflare proxying breaks GitHub's DNS verification (returns Cloudflare IPs instead of GitHub's) and Let's Encrypt's HTTP-01 challenge for cert provisioning.
+`public/CNAME` is checked into the repo and copied to `dist/CNAME` by Vite, which GitHub Pages reads to bind the custom domain. Edit it to your own host if you fork.
 
-| Type | Name | Value | Proxy |
-|---|---|---|---|
-| CNAME | `wopr` | `rhoekstr.github.io` | DNS only |
-| A | `awrylabs.com` | `185.199.108.153` | DNS only |
-| A | `awrylabs.com` | `185.199.109.153` | DNS only |
-| A | `awrylabs.com` | `185.199.110.153` | DNS only |
-| A | `awrylabs.com` | `185.199.111.153` | DNS only |
-| AAAA | `awrylabs.com` | `2606:50c0:8000::153` | DNS only |
-| AAAA | `awrylabs.com` | `2606:50c0:8001::153` | DNS only |
-| AAAA | `awrylabs.com` | `2606:50c0:8002::153` | DNS only |
-| AAAA | `awrylabs.com` | `2606:50c0:8003::153` | DNS only |
-| CNAME | `www` | `rhoekstr.github.io` | DNS only |
+For DNS, the relevant constraints (provider-agnostic):
 
-All four GitHub Pages apex IPs (and IPv6 equivalents) are listed for redundancy. Once cert provisioning is complete and HTTPS is enforced, Cloudflare proxying CAN be re-enabled with Cloudflare's SSL mode set to **Full** (not "Full Strict") to accept GitHub's Let's Encrypt cert — but doing so isn't necessary for the site to work, and proxy-on adds complexity around cert renewal.
+- **Apex domain** → A records pointing at GitHub Pages' apex IPs (current values published in [GitHub's docs](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site#configuring-an-apex-domain)). Add IPv6 AAAA records for completeness.
+- **Subdomain** → CNAME pointing at `<username>.github.io`.
+- **If your DNS provider proxies traffic** (Cloudflare's orange cloud, Fastly, etc.), set the records to **DNS-only / un-proxied** for at least the initial verification + cert provisioning. Proxied lookups return the proxy's IPs, which break GitHub's DNS verification and Let's Encrypt's HTTP-01 challenge. After HTTPS is provisioned and enforced, you can re-enable proxying with the proxy's TLS mode set to "Full" (accepts GitHub's Let's Encrypt cert).
 
 ### 10.4 Health check
 
-If something goes wrong with HTTPS, the GitHub Pages health endpoint exposes the live verification state:
+If something goes wrong with the custom domain or HTTPS, the GitHub Pages health endpoint exposes the live verification state:
 
 ```bash
-gh api /repos/rhoekstr/wopr/pages/health | jq '.domain'
+gh api /repos/OWNER/REPO/pages/health | jq '.domain'
 ```
 
 Useful fields: `dns_resolves`, `is_proxied`, `has_cname_record`, `is_cname_to_github_user_domain`, `is_served_by_pages`, `responds_to_https`, `https_error`, `is_https_eligible`.
