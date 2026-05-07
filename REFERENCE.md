@@ -1,6 +1,10 @@
 # WOPR Game Selection — Reference
 
-A mobile-first React app hosting five turn-based strategy games on a single menu, themed around WarGames (1983). Live at `wopr.awrylabs.com`.
+A mobile-first React app hosting five turn-based strategy games on a single menu, themed around WarGames (1983).
+
+- **Live**: https://wopr.awrylabs.com
+- **Repo**: https://github.com/rhoekstr/wopr
+- **Stack**: React 18 + Vite 5, single-file (~2700 LOC), zero non-React dependencies
 
 This document describes the project as built. It supersedes the original PRD.
 
@@ -18,12 +22,16 @@ wopr/
 │   └── main.jsx                    # React entry; mounts <GameRoom />
 ├── index.html
 ├── package.json                    # React 18, Vite 5, no other deps
+├── package-lock.json               # tracked for reproducible installs
 ├── vite.config.js                  # base: "/" (custom domain)
 ├── REFERENCE.md                    # this file
-└── README.md
+├── README.md
+└── .gitignore                      # ignores node_modules/, dist/, .claude/, .vscode/, .idea/, .DS_Store
 ```
 
 Single-file architecture for `src/games.jsx` was a deliberate choice — keeps the entire codebase in one ~2700-line module so it's easy to grep, easy to deploy, and avoids cross-file plumbing for what is fundamentally a small static SPA.
+
+Editor-local config (`.claude/`, `.vscode/`, `.idea/`) is gitignored — keep your dev tooling preferences local.
 
 ## 2. Tech stack
 
@@ -363,23 +371,75 @@ npm run preview      # serves dist/ locally
 
 ### 10.1 GitHub Pages flow
 
-`.github/workflows/deploy.yml` runs on push to `main`:
+`.github/workflows/deploy.yml` runs on push to `main` and on `workflow_dispatch`:
+
 1. checkout
 2. setup-node 20 + npm cache
 3. `npm ci` → `npm run build`
-4. `actions/upload-pages-artifact@v3` (path `dist/`)
-5. `actions/deploy-pages@v4`
+4. `actions/configure-pages@v5` with **`enablement: true`** (auto-creates the Pages site on first run if Pages is off; harmless on subsequent runs)
+5. `actions/upload-pages-artifact@v3` (path `dist/`)
+6. `actions/deploy-pages@v4`
 
-`public/CNAME` contains `wopr.awrylabs.com` and is copied verbatim into `dist/CNAME`, which GitHub Pages reads to bind the custom domain.
+Required workflow permissions (declared at the top of the YAML):
+```yaml
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+```
 
-### 10.2 DNS setup
+`public/CNAME` contains `wopr.awrylabs.com` and is copied verbatim into `dist/CNAME` by Vite, which GitHub Pages reads to bind the custom domain. Vite's `base: "/"` works because the custom domain treats the site as root.
 
-Cloudflare DNS for `awrylabs.com`:
-- `CNAME wopr → rhoekstr.github.io` (proxied OK)
+### 10.2 First-time bootstrap (one-time)
 
-GitHub Pages settings on `rhoekstr/wopr`:
-- Source: GitHub Actions
-- Custom domain: `wopr.awrylabs.com` (verified after the CNAME file is in `dist/`)
+The very first deploy after creating the repo had two snags that the workflow alone couldn't solve:
+
+1. **Pages site didn't exist** → `configure-pages` failed with "Get Pages site failed" until we set `enablement: true`.
+2. **Default `GITHUB_TOKEN` lacks permission to create a Pages site for a brand-new repo** → even with `enablement: true`, the API call returned "Resource not accessible by integration".
+
+The clean workaround was to enable Pages once via the API with a personal token (the `gh` CLI, which is already authenticated), then let the workflow take over for all future deploys:
+
+```bash
+# Enable Pages with build_type=workflow (so deploys come from Actions, not legacy branch builds)
+gh api -X POST /repos/rhoekstr/wopr/pages -f build_type=workflow
+
+# Bind the custom domain
+gh api -X PUT  /repos/rhoekstr/wopr/pages -f cname=wopr.awrylabs.com
+
+# After Let's Encrypt cert provisions (~5–15 min after DNS verifies), enforce HTTPS
+gh api -X PUT  /repos/rhoekstr/wopr/pages -F https_enforced=true
+```
+
+After that, every push to `main` rebuilds and redeploys automatically; no further manual steps.
+
+### 10.3 DNS setup (Cloudflare)
+
+For `awrylabs.com`, all records pointing at GitHub Pages are **DNS-only** (proxy off — orange cloud disabled). Cloudflare proxying breaks GitHub's DNS verification (returns Cloudflare IPs instead of GitHub's) and Let's Encrypt's HTTP-01 challenge for cert provisioning.
+
+| Type | Name | Value | Proxy |
+|---|---|---|---|
+| CNAME | `wopr` | `rhoekstr.github.io` | DNS only |
+| A | `awrylabs.com` | `185.199.108.153` | DNS only |
+| A | `awrylabs.com` | `185.199.109.153` | DNS only |
+| A | `awrylabs.com` | `185.199.110.153` | DNS only |
+| A | `awrylabs.com` | `185.199.111.153` | DNS only |
+| AAAA | `awrylabs.com` | `2606:50c0:8000::153` | DNS only |
+| AAAA | `awrylabs.com` | `2606:50c0:8001::153` | DNS only |
+| AAAA | `awrylabs.com` | `2606:50c0:8002::153` | DNS only |
+| AAAA | `awrylabs.com` | `2606:50c0:8003::153` | DNS only |
+| CNAME | `www` | `rhoekstr.github.io` | DNS only |
+
+All four GitHub Pages apex IPs (and IPv6 equivalents) are listed for redundancy. Once cert provisioning is complete and HTTPS is enforced, Cloudflare proxying CAN be re-enabled with Cloudflare's SSL mode set to **Full** (not "Full Strict") to accept GitHub's Let's Encrypt cert — but doing so isn't necessary for the site to work, and proxy-on adds complexity around cert renewal.
+
+### 10.4 Health check
+
+If something goes wrong with HTTPS, the GitHub Pages health endpoint exposes the live verification state:
+
+```bash
+gh api /repos/rhoekstr/wopr/pages/health | jq '.domain'
+```
+
+Useful fields: `dns_resolves`, `is_proxied`, `has_cname_record`, `is_cname_to_github_user_domain`, `is_served_by_pages`, `responds_to_https`, `https_error`, `is_https_eligible`.
 
 ## 11. Accepted limitations / future work
 
@@ -395,14 +455,27 @@ GitHub Pages settings on `rhoekstr/wopr`:
 
 ## 12. Single-file map (line ranges in `src/games.jsx`)
 
-Approximate guidance for navigation:
+Approximate guidance for navigation. Line numbers shift when you edit; use `grep` to re-anchor:
 
-- Lines ~1–60 — imports, shared constants, `ModeBar`/`DiffBar`/`BackButton`
-- ~63–300 — Tic-Tac-Toe
-- ~302–660 — Connect Four
-- ~662–990 — Dots & Boxes
-- ~1000–1590 — Go (rules engine + AI + component)
-- ~1600–2700 — WOPR (data, AI, helpers, modal, component)
-- ~2700–end — `GAMES` array, `Menu`, `GameRoom` router
+- ~1–62 — imports, shared constants (`DIFFICULTIES`, `MODES`), `ModeBar`/`DiffBar`/`BackButton`
+- ~63–302 — Tic-Tac-Toe
+- ~303–662 — Connect Four
+- ~663–985 — Dots & Boxes
+- ~988–1590 — Go (rules engine + AI + component)
+- ~1593–3019 — WOPR
+  - ~1593–1740 — colors, map outlines, city/silo/sub/bomber data, personalities
+  - ~1740–1900 — helpers, init, CPU AI (launches + pass + intercepts)
+  - ~1931–2080 — `wopr_resolveRound`
+  - ~2082–2100 — `WOPR_DefconBar`
+  - ~2103–2196 — `WOPR_HelpModal`
+  - ~2207–end — `WOPR` main component (state, handlers, renderers, JSX)
+- ~3021–end — `GAMES` array, `Menu`, `GameRoom` router
 
-Use `grep -n "^function "` or `grep -n "^const WOPR_"` to navigate.
+Quick navigation:
+
+```bash
+grep -nE "^// ═══" src/games.jsx        # major game sections
+grep -nE "^// ── " src/games.jsx         # WOPR sub-sections
+grep -nE "^function " src/games.jsx      # all functions
+grep -n "^const WOPR_" src/games.jsx     # WOPR constants
+```
