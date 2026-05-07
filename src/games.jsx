@@ -61,20 +61,20 @@ function BackButton({ onBack }) {
 }
 
 // "by awryLabs" credit — shown in the same top-center position on every screen.
+// Brand style: italic "awry" + bold "Labs", matching www.awrylabs.com.
 function AwryCredit() {
   return (
     <a href="https://www.awrylabs.com" target="_blank" rel="noopener noreferrer" style={{
       position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
       zIndex: 40,
-      fontSize: 9, letterSpacing: "0.3em",
+      fontSize: 11, letterSpacing: "0.05em",
       color: "#888", textDecoration: "none",
-      fontFamily: "'Courier New', monospace", fontWeight: "bold",
-      textTransform: "uppercase",
+      fontFamily: "'Courier New', monospace",
       transition: "color 0.15s",
     }}
     onMouseEnter={e => { e.currentTarget.style.color = "#fff"; }}
     onMouseLeave={e => { e.currentTarget.style.color = "#888"; }}
-    >by awryLabs ↗</a>
+    >by <em style={{ fontStyle: "italic" }}>awry</em><strong style={{ fontWeight: "bold" }}>Labs</strong> <span style={{ fontSize: 9 }}>↗</span></a>
   );
 }
 
@@ -3108,13 +3108,13 @@ function Menu({ onSelect }) {
       gap: "0",
     }}>
       <a href="https://www.awrylabs.com" target="_blank" rel="noopener noreferrer" style={{
-        fontSize: "10px", letterSpacing: "0.5em", color: "#aaa",
-        textTransform: "uppercase", marginBottom: "6px", fontWeight: "bold",
+        fontSize: "14px", letterSpacing: "0.05em", color: "#bbb",
+        marginBottom: "6px",
         textDecoration: "none", transition: "color 0.15s",
       }}
       onMouseEnter={e => { e.currentTarget.style.color = "#fff"; }}
-      onMouseLeave={e => { e.currentTarget.style.color = "#aaa"; }}
-      >Awry Labs ↗</a>
+      onMouseLeave={e => { e.currentTarget.style.color = "#bbb"; }}
+      ><em style={{ fontStyle: "italic" }}>awry</em><strong style={{ fontWeight: "bold" }}>Labs</strong> <span style={{ fontSize: 11 }}>↗</span></a>
       <div style={{ fontSize: "26px", fontWeight: "bold", letterSpacing: "0.15em", marginBottom: "4px", color: "#00ff41", textShadow: "0 0 8px rgba(0,255,65,0.4)" }}>
         WOPR
       </div>
