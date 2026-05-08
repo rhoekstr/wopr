@@ -2489,7 +2489,8 @@ function WOPR({ onBack }) {
     const fillCol = dim ? WOPR_C.siloDim : WOPR_C.siloCol;
     const isSelected = state.selectedSilo === silo.id && isFriendly && isLaunchPhase();
     const queueCount = ownLaunches.filter(l => l.siloId === silo.id).length;
-    const isLaunchTarget = isLaunchPhase() && state.selectedSilo && side !== aSide && silo.alive;
+    // Spent (launched) silos and destroyed silos are no longer useful targets — gate accordingly.
+    const isLaunchTarget = isLaunchPhase() && state.selectedSilo && side !== aSide && silo.alive && !silo.launched;
     const clickable = isLaunchTarget || (isFriendly && isLaunchPhase() && silo.alive && !silo.launched);
 
     return (
@@ -2633,22 +2634,23 @@ function WOPR({ onBack }) {
     const isFriendly = side === aSide;
     const sideCol = side === "us" ? WOPR_C.usaCol : WOPR_C.ussrCol;
     const isSelectedIntercept = state.selectedInterceptCity === city.id && isFriendly && isInterceptPhase();
-    const isLaunchTarget = isLaunchPhase() && state.selectedSilo && side !== aSide;
+    // Destroyed cities are not useful targets — gate at the flag so all use-sites stay consistent.
+    const isLaunchTarget = isLaunchPhase() && state.selectedSilo && side !== aSide && city.alive;
 
     return (
       <g key={city.id}
          onClick={() => {
-           if (isLaunchTarget && city.alive) handleTargetClick(side, city.id);
+           if (isLaunchTarget) handleTargetClick(side, city.id);
            else if (isInterceptPhase() && isFriendly && city.alive) handleInterceptCityClick(side, city.id);
          }}
          style={{ cursor:
-           (isLaunchTarget && city.alive) ||
+           isLaunchTarget ||
            (isInterceptPhase() && isFriendly && city.alive && city.interceptors > 0)
              ? "pointer" : "default" }}>
         {/* Larger transparent hit-area for easier clicking on phones */}
         <circle cx={city.x} cy={city.y} r={14} fill="transparent" />
         {/* Targetable ring */}
-        {isLaunchTarget && city.alive && (
+        {isLaunchTarget && (
           <circle cx={city.x} cy={city.y} r={10} fill="none" stroke={WOPR_C.red} strokeWidth={1.5} opacity={0.8} />
         )}
         <circle cx={city.x} cy={city.y} r={city.alive ? 5 : 4}
