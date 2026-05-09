@@ -1695,29 +1695,18 @@ const WOPR_US_SILOS = [
   { id:"ss8", name:"ROBINS",         x:248, y:328, region:"south"   },
 ];
 
-// Submarines — untargetable launch platforms in international waters.
-// Each carries 2 missiles, fires up to 2 per round, then is "spent" for the rest of the game.
-const WOPR_RU_SUBS = [
-  { id:"ru_sub_n", name:"NORTHERN FLEET", x:70,  y:8,   region:"west", kind:"sub" },
-  { id:"ru_sub_p", name:"PACIFIC FLEET",  x:300, y:8,   region:"east", kind:"sub" },
-];
-const WOPR_US_SUBS = [
-  { id:"us_sub_p", name:"PACIFIC SSBN",   x:70,  y:412, region:"west", kind:"sub" },
-  { id:"us_sub_a", name:"ATLANTIC SSBN",  x:300, y:412, region:"east", kind:"sub" },
-];
-
-// Strategic bombers — untargetable, can't be intercepted, but each launch has a 60% chance
-// to reach (40% shot down by AAA). Each bomber attacks ONE target per round (one missile total).
-const WOPR_RU_BOMBERS = [
-  { id:"ru_bmb_1", name:"TU-95",  x:52,  y:152, region:"west",    kind:"bomber" },
-  { id:"ru_bmb_2", name:"TU-160", x:130, y:110, region:"central", kind:"bomber" },
-  { id:"ru_bmb_3", name:"TU-22",  x:228, y:130, region:"east",    kind:"bomber" },
-];
-const WOPR_US_BOMBERS = [
-  { id:"us_bmb_1", name:"B-52",  x:72,  y:290, region:"west",    kind:"bomber" },
-  { id:"us_bmb_2", name:"B-1",   x:180, y:265, region:"central", kind:"bomber" },
-  { id:"us_bmb_3", name:"B-2",   x:270, y:312, region:"south",   kind:"bomber" },
-];
+// Submarines + bombers are placed RANDOMLY at game start (within their respective zones)
+// so per-game distance distributions vary — see wopr_genSubs / wopr_genBombers below.
+// Each sub carries 2 missiles, fires up to 2 per round.
+// Each bomber carries 1 sortie, fires once per game.
+const WOPR_SUB_NAMES = {
+  us: ["PACIFIC SSBN", "ATLANTIC SSBN", "GULF SSBN"],
+  ru: ["NORTHERN FLEET", "PACIFIC FLEET", "BLACK SEA FLT"],
+};
+const WOPR_BOMBER_NAMES = {
+  us: ["B-52", "B-1", "B-2", "B-21"],
+  ru: ["TU-95", "TU-160", "TU-22", "TU-95MS"],
+};
 
 // ── Personalities (PRD §8.6) ──────────────────────────────────────────────────
 const WOPR_PERSONALITY_KEYS = ["firstStrike","populationStrike","decapitation","defenseHeavy","deescalatory","erratic"];
@@ -1792,6 +1781,65 @@ function wopr_pickRandomN(arr, n) {
   }
   return a.slice(0, Math.min(n, a.length));
 }
+
+// Region by x coord, used when generating randomly-placed launch platforms.
+function wopr_regionFromX(x) {
+  if (x < 130) return "west";
+  if (x > 230) return "east";
+  return "central";
+}
+
+// Random sub placement — in international waters above USSR or below USA.
+// Distributes x across the map width to avoid clustering.
+function wopr_genSubs(side, n) {
+  const yBand = side === "us" ? [407, 418] : [3, 14];
+  // Slice the width into n bands and place one sub per band (shuffled) so they spread.
+  const bandWidth = 320 / Math.max(1, n);
+  const xs = [];
+  for (let i = 0; i < n; i++) {
+    const min = 20 + i * bandWidth;
+    const max = min + bandWidth;
+    xs.push(wopr_pickInRange(Math.round(min), Math.round(max)));
+  }
+  // Shuffle so sub names don't always go left-to-right
+  for (let i = xs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [xs[i], xs[j]] = [xs[j], xs[i]];
+  }
+  return xs.map((x, i) => ({
+    id: `${side}_sub_${i}`,
+    name: WOPR_SUB_NAMES[side][i] || `SSBN ${i + 1}`,
+    x, y: wopr_pickInRange(yBand[0], yBand[1]),
+    region: wopr_regionFromX(x), kind: "sub",
+  }));
+}
+
+// Random bomber placement — within the country's interior.
+function wopr_genBombers(side, n) {
+  const xRange = [50, 300];
+  const yRange = side === "us" ? [240, 370] : [85, 175];
+  const bandWidth = (xRange[1] - xRange[0]) / Math.max(1, n);
+  const positions = [];
+  for (let i = 0; i < n; i++) {
+    const min = xRange[0] + i * bandWidth;
+    const max = min + bandWidth;
+    positions.push({
+      x: wopr_pickInRange(Math.round(min), Math.round(max)),
+      y: wopr_pickInRange(yRange[0], yRange[1]),
+    });
+  }
+  // Shuffle so bomber names don't always go left-to-right
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [positions[i], positions[j]] = [positions[j], positions[i]];
+  }
+  return positions.map((p, i) => ({
+    id: `${side}_bmb_${i}`,
+    name: WOPR_BOMBER_NAMES[side][i] || `BOMBER ${i + 1}`,
+    x: p.x, y: p.y,
+    region: wopr_regionFromX(p.x), kind: "bomber",
+  }));
+}
 function wopr_rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function wopr_findTarget(state, targetSide, targetId) {
   const side = wopr_getSide(state, targetSide);
@@ -1817,10 +1865,10 @@ function wopr_initState(usMode = "human", ruMode = "human") {
   const ruCities = WOPR_RU_CITIES.map(makeCity);
   const usSilos = wopr_pickRandomN(WOPR_US_SILOS, wopr_pickInRange(5, 8)).map(makeSource);
   const ruSilos = wopr_pickRandomN(WOPR_RU_SILOS, wopr_pickInRange(5, 8)).map(makeSource);
-  const usSubs  = wopr_pickRandomN(WOPR_US_SUBS,  wopr_pickInRange(1, 2)).map(makeSource);
-  const ruSubs  = wopr_pickRandomN(WOPR_RU_SUBS,  wopr_pickInRange(1, 2)).map(makeSource);
-  const usBmbrs = wopr_pickRandomN(WOPR_US_BOMBERS, wopr_pickInRange(2, 3)).map(makeSource);
-  const ruBmbrs = wopr_pickRandomN(WOPR_RU_BOMBERS, wopr_pickInRange(2, 3)).map(makeSource);
+  const usSubs  = wopr_genSubs("us",     wopr_pickInRange(1, 3)).map(makeSource);
+  const ruSubs  = wopr_genSubs("ru",     wopr_pickInRange(1, 3)).map(makeSource);
+  const usBmbrs = wopr_genBombers("us",  wopr_pickInRange(2, 4)).map(makeSource);
+  const ruBmbrs = wopr_genBombers("ru",  wopr_pickInRange(2, 4)).map(makeSource);
   const usMaxInterceptors = usCities.reduce((n, c) => n + c.interceptors, 0);
   const ruMaxInterceptors = ruCities.reduce((n, c) => n + c.interceptors, 0);
 
@@ -2242,12 +2290,12 @@ function WOPR_HelpModal({ onClose }) {
           <IconRow
             swatch={<svg width={22} height={14}><polygon points="2,7 6,3 16,3 20,7 16,11 6,11" fill={WOPR_C.subCol} /><rect x={9} y={1} width={4} height={2} fill={WOPR_C.subCol} /></svg>}
             label="SSBN"
-            desc="1–2/side × 2 missiles. Untargetable."
+            desc="1–3/side × 2 missiles. Untargetable. Random patrol position each game."
           />
           <IconRow
             swatch={<svg width={18} height={14}><polygon points="9,2 17,11 9,8 1,11" fill={WOPR_C.bomberCol} /></svg>}
             label="BOMBER"
-            desc="2–3/side, 1 sortie. Un-interceptable. Reach scales with distance."
+            desc="2–4/side, 1 sortie. Un-interceptable; reach scales with distance. Random base each game."
           />
         </Section>
 

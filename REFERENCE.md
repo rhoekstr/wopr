@@ -198,15 +198,17 @@ The most mechanically rich game. WarGames-themed CRT-green aesthetic. Models the
 
 ### 9.2 Triad units
 
-Each side has THREE distinct platform types. Counts are **randomized per game per side** at startup, picking randomly from the available real-world positions:
+Each side has THREE distinct platform types. Counts AND positions are **randomized per game per side**:
 
-| Platform | Count/side (random) | Missiles each | Targetable? | Interceptable? | Per-round limit |
-|---|---|---|---|---|---|
-| Silo (ICBM) | 5–8 | 2 | YES (preemptive strike disables) | YES | up to 2 missiles |
-| SSBN (sub) | 1–2 | 2 | NO | YES | up to 2 missiles |
-| Bomber | 2–3 | 1 | NO | NO | 1 sortie |
+| Platform | Count/side | Position | Missiles each | Targetable? | Interceptable? | Per-round limit |
+|---|---|---|---|---|---|---|
+| Silo (ICBM) | 5–8 | random subset of real-world ICBM bases | 2 | YES (preemptive strike disables) | YES | up to 2 missiles |
+| SSBN (sub) | 1–3 | random in international waters | 2 | NO | YES | up to 2 missiles |
+| Bomber | 2–4 | random within country interior | 1 | NO | NO | 1 sortie |
 
-Total launches per side per game varies from ~14 (minimal arsenal) to ~23 (full arsenal). After firing, a source is `launched: true` and out for the rest of the game.
+Random placement of subs (in the water bands above USSR / below USA) and bombers (within the country's interior) means **distance distributions vary per game**, which interacts with the distance-based intercept and AAA formulas — the same intercept assignment can be 40% one game and 80% the next depending on where the missile launched from.
+
+Total launches per side per game varies from ~10 (minimal arsenal) to ~28 (full arsenal). After firing, a source is `launched: true` and out for the rest of the game.
 
 The randomization represents intelligence uncertainty — recon early to learn what arsenal you face this game.
 
