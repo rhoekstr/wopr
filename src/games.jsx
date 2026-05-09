@@ -1845,6 +1845,13 @@ function wopr_findTarget(state, targetSide, targetId) {
   const side = wopr_getSide(state, targetSide);
   return side.cities.find(c => c.id === targetId) || side.silos.find(s => s.id === targetId);
 }
+// Display labels for log/UI messages so weapon and target type are always clear.
+const WOPR_KIND_TAG = { silo: "SILO", sub: "SSBN", bomber: "BOMBER", city: "CITY" };
+function wopr_label(obj) {
+  if (!obj) return "?";
+  const tag = WOPR_KIND_TAG[obj.kind];
+  return tag ? `${obj.name} (${tag})` : obj.name;
+}
 function wopr_oppSide(side) { return side === "us" ? "ru" : "us"; }
 function wopr_modeIsCpu(mode) { return mode && mode !== "human"; }
 
@@ -1855,9 +1862,10 @@ function wopr_pickPersonality(mode) {
 }
 
 function wopr_initState(usMode = "human", ruMode = "human") {
-  const makeCity = c => ({ ...c, alive: true, interceptors: wopr_pickInterceptorCount(),
+  const makeCity = c => ({ ...c, kind: "city", alive: true, interceptors: wopr_pickInterceptorCount(),
     casualties: 0, bias: 1 + (Math.random() - 0.5) * 0.6 });
-  const makeSource = s => ({ ...s, alive: true, launched: false });
+  // Silo data doesn't carry a kind field; subs/bombers come from generators that set it.
+  const makeSource = s => ({ ...s, kind: s.kind || "silo", alive: true, launched: false });
 
   // Per-side independent rolls — each game has a different operational arsenal.
   // Bounded by available data positions (8 silos / 2 subs / 3 bombers per side).
@@ -2068,7 +2076,7 @@ function wopr_resolveRound(state) {
       const silo = wopr_getSide(s, defendSide).silos.find(x => x.id === l.targetId);
       if (silo?.alive) {
         silo.alive = false;
-        log.push(`▸ SILO ${silo.name} [${defendSide.toUpperCase()}] DESTROYED BEFORE LAUNCH`);
+        log.push(`▸ SILO ${silo.name} [${defendSide.toUpperCase()}] HIT BEFORE LAUNCH — disarmed`);
       }
     }
   };
@@ -2121,8 +2129,8 @@ function wopr_resolveRound(state) {
         city.alive = false;
         const pct = 0.5 + Math.random() * 0.4;
         city.casualties = Math.round(city.pop * pct * 10) / 10;
-        const tag = l.isBomber ? "BOMBED" : "DESTROYED";
-        log.push(`▸ ${city.name} [${defendSide.toUpperCase()}] ${tag} — ${city.casualties.toFixed(1)}M CASUALTIES`);
+        const verb = l.isBomber ? "BOMBED" : "STRUCK";
+        log.push(`▸ CITY ${city.name} [${defendSide.toUpperCase()}] ${verb} — ${city.casualties.toFixed(1)}M CASUALTIES`);
       }
       const silo = wopr_getSide(s, defendSide).silos.find(x => x.id === l.targetId);
       if (silo?.alive) {
@@ -2464,7 +2472,7 @@ function WOPR({ onBack }) {
         ...s,
         [launchKey]: [...s[launchKey], { siloId: s.selectedSilo, targetId, targetSide, isBomber }],
         selectedSilo: null,
-        log: [...s.log, `▸ ${silo?.name || s.selectedSilo} → ${target?.name || targetId}${isBomber ? " [BOMBER]" : ""}`],
+        log: [...s.log, `▸ ${wopr_label(silo)} → ${wopr_label(target)}`],
       };
     });
   }
@@ -3056,7 +3064,7 @@ function WOPR({ onBack }) {
                     return (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 6,
                             fontSize: 8, color: WOPR_C.hot, marginBottom: 2 }}>
-                        <span>▸ {silo?.name} → {tgt?.name}</span>
+                        <span>▸ {wopr_label(silo)} → {wopr_label(tgt)}</span>
                         {activeIsHuman() && (
                           <button onClick={() => removeLaunch(i)} style={{
                             fontSize: 7, color: WOPR_C.red, background: "transparent",
@@ -3080,10 +3088,12 @@ function WOPR({ onBack }) {
                     <div style={{ fontSize: 8, color: WOPR_C.faint }}>— NONE —</div>
                   ) : ownIntercepts.map((ic, i) => {
                     const city = wopr_getSide(state, aSide).cities.find(c => c.id === ic.cityId);
+                    const inboundLaunch = incomingLaunches[ic.missileIdx];
+                    const inboundTgt = inboundLaunch ? wopr_findTarget(state, inboundLaunch.targetSide, inboundLaunch.targetId) : null;
                     return (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 6,
                             fontSize: 8, color: WOPR_C.bright, marginBottom: 2 }}>
-                        <span>▸ {city?.name} → MISSILE {ic.missileIdx+1} [{Math.round(ic.chance*100)}%]</span>
+                        <span>▸ {city?.name} → #{ic.missileIdx+1} aimed at {wopr_label(inboundTgt)} [{Math.round(ic.chance*100)}%]</span>
                         {activeIsHuman() && (
                           <button onClick={() => removeIntercept(i)} style={{
                             fontSize: 7, color: WOPR_C.red, background: "transparent",
