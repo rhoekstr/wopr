@@ -1628,9 +1628,11 @@ const WOPR_C = {
   bomberDim: "#5a4a00",
 };
 
-// Bomber AAA reach probability — each launched bomber has this chance to deliver its payload.
-// Independent of city interceptors (bombers fly low/high under different doctrine).
-const WOPR_BOMBER_REACH_PROB = 0.6;
+// Distance normalization: typical map distances run 50–450 px between source and target.
+// Closer launches give defenders less reaction time → harder to intercept.
+// Farther bomber sorties spend more time over hostile territory → more AAA → lower reach.
+const WOPR_DIST_MIN = 50;
+const WOPR_DIST_MAX = 450;
 
 // Country outlines — sourced from mapsicon (CC BY 4.0) and rendered via a transform group.
 // Source paths use a 1024×1024 viewBox with potrace's Y-up convention; we apply a matrix
@@ -1750,7 +1752,46 @@ function wopr_findSource(state, side, id) {
 }
 function wopr_totalCasualties(state, side) { return wopr_getSide(state, side).cities.reduce((n, c) => n + c.casualties, 0); }
 function wopr_isDestroyed(state, side) { return wopr_getSide(state, side).cities.every(c => !c.alive); }
-function wopr_interceptChance(srcRegion, tgtRegion) { return srcRegion === tgtRegion ? 0.9 : 0.7; }
+function wopr_distance(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+function wopr_distNorm(d) {
+  return Math.max(0, Math.min(1, (d - WOPR_DIST_MIN) / (WOPR_DIST_MAX - WOPR_DIST_MIN)));
+}
+// Intercept chance — distance + region. Closer = harder (less warning).
+// Range: ~30% (point-blank, cross-region) to ~95% (cross-continental, same-region).
+function wopr_interceptChance(defenderCity, source, target) {
+  if (!source || !target) return 0.6; // safe fallback
+  const dn = wopr_distNorm(wopr_distance(source, target));
+  const sameRegion = defenderCity.region === target.region ? 1 : 0;
+  return Math.max(0.30, Math.min(0.95, 0.40 + 0.50 * dn + 0.05 * sameRegion));
+}
+// Bomber AAA reach — distance only. Closer target = less AAA exposure.
+// Range: ~30% (cross-continental) to ~85% (point-blank).
+function wopr_bomberReach(source, target) {
+  if (!source || !target) return 0.5;
+  const dn = wopr_distNorm(wopr_distance(source, target));
+  return Math.max(0.30, Math.min(0.85, 0.75 - 0.40 * dn));
+}
+// Per-city interceptor count: 1–3, weighted (25/50/25).
+function wopr_pickInterceptorCount() {
+  const r = Math.random();
+  if (r < 0.25) return 1;
+  if (r < 0.75) return 2;
+  return 3;
+}
+function wopr_pickInRange(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+function wopr_pickRandomN(arr, n) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, Math.min(n, a.length));
+}
 function wopr_rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function wopr_findTarget(state, targetSide, targetId) {
   const side = wopr_getSide(state, targetSide);
@@ -1766,9 +1807,23 @@ function wopr_pickPersonality(mode) {
 }
 
 function wopr_initState(usMode = "human", ruMode = "human") {
-  const makeCity = c => ({ ...c, alive: true, interceptors: 2, casualties: 0,
-    bias: 1 + (Math.random() - 0.5) * 0.6 });
+  const makeCity = c => ({ ...c, alive: true, interceptors: wopr_pickInterceptorCount(),
+    casualties: 0, bias: 1 + (Math.random() - 0.5) * 0.6 });
   const makeSource = s => ({ ...s, alive: true, launched: false });
+
+  // Per-side independent rolls — each game has a different operational arsenal.
+  // Bounded by available data positions (8 silos / 2 subs / 3 bombers per side).
+  const usCities = WOPR_US_CITIES.map(makeCity);
+  const ruCities = WOPR_RU_CITIES.map(makeCity);
+  const usSilos = wopr_pickRandomN(WOPR_US_SILOS, wopr_pickInRange(5, 8)).map(makeSource);
+  const ruSilos = wopr_pickRandomN(WOPR_RU_SILOS, wopr_pickInRange(5, 8)).map(makeSource);
+  const usSubs  = wopr_pickRandomN(WOPR_US_SUBS,  wopr_pickInRange(1, 2)).map(makeSource);
+  const ruSubs  = wopr_pickRandomN(WOPR_RU_SUBS,  wopr_pickInRange(1, 2)).map(makeSource);
+  const usBmbrs = wopr_pickRandomN(WOPR_US_BOMBERS, wopr_pickInRange(2, 3)).map(makeSource);
+  const ruBmbrs = wopr_pickRandomN(WOPR_RU_BOMBERS, wopr_pickInRange(2, 3)).map(makeSource);
+  const usMaxInterceptors = usCities.reduce((n, c) => n + c.interceptors, 0);
+  const ruMaxInterceptors = ruCities.reduce((n, c) => n + c.interceptors, 0);
+
   return {
     phase: "intro",
     defcon: 3,
@@ -1779,13 +1834,13 @@ function wopr_initState(usMode = "human", ruMode = "human") {
     usPassedLast: false,
     ruPassedLast: false,
     log: ["WOPR ONLINE.", "GREETINGS, PROFESSOR FALKEN.", "SHALL WE PLAY A GAME?"],
-    us: { cities: WOPR_US_CITIES.map(makeCity), silos: WOPR_US_SILOS.map(makeSource), subs: WOPR_US_SUBS.map(makeSource), bombers: WOPR_US_BOMBERS.map(makeSource) },
-    ru: { cities: WOPR_RU_CITIES.map(makeCity), silos: WOPR_RU_SILOS.map(makeSource), subs: WOPR_RU_SUBS.map(makeSource), bombers: WOPR_RU_BOMBERS.map(makeSource) },
-    usLaunches:   [],   // {siloId, targetId, targetSide}  — siloId is the LAUNCH SOURCE id (silo or sub)
+    us: { cities: usCities, silos: usSilos, subs: usSubs, bombers: usBmbrs, maxInterceptors: usMaxInterceptors },
+    ru: { cities: ruCities, silos: ruSilos, subs: ruSubs, bombers: ruBmbrs, maxInterceptors: ruMaxInterceptors },
+    usLaunches:   [],   // {siloId, targetId, targetSide}  — siloId is the LAUNCH SOURCE id (silo / sub / bomber)
     ruLaunches:   [],
     usIntercepts: [],   // {cityId, missileIdx, chance}  — defending against ruLaunches
     ruIntercepts: [],   // defending against usLaunches
-    selectedSilo: null, // selected launch source id (silo or sub)
+    selectedSilo: null,
     selectedInterceptCity: null,
   };
 }
@@ -1898,9 +1953,10 @@ function wopr_pickIntercepts(state, side, personality, difficulty, incomingLaunc
   if (incomingLaunches.length === 0) return [];
   const p = WOPR_PERSONALITIES[personality];
 
-  // Cap = max(0, total_interceptors - own_missiles_launched_this_step * 3) where total = 10 cities × 2 interceptors
+  // Cap = max(0, side_max_interceptors - own_missiles_launched_this_step * 3)
   const ownLaunchCount = (side === "us" ? state.usLaunches : state.ruLaunches).length;
-  const cap = Math.max(0, 20 - ownLaunchCount * 3);
+  const sideMax = wopr_getSide(state, side).maxInterceptors || 20;
+  const cap = Math.max(0, sideMax - ownLaunchCount * 3);
 
   // Available interceptor pool from alive cities
   const cities = wopr_aliveCities(state, side).map(c => ({ ...c, available: c.interceptors }));
@@ -1909,9 +1965,11 @@ function wopr_pickIntercepts(state, side, personality, difficulty, incomingLaunc
   if (totalUsable === 0) return [];
 
   // Score incoming missiles: prioritize highest-pop targets
+  const attackerSide = wopr_oppSide(side);
   const allMissiles = incomingLaunches.map((l, idx) => {
     const tgt = wopr_findTarget(state, l.targetSide, l.targetId);
-    return { idx, launch: l, target: tgt, value: tgt ? (tgt.pop || 0.3) : 0 };
+    const src = wopr_findSource(state, attackerSide, l.siloId);
+    return { idx, launch: l, target: tgt, source: src, value: tgt ? (tgt.pop || 0.3) : 0 };
   });
   // Sort by value desc — highest-value first
   allMissiles.sort((a, b) => b.value - a.value);
@@ -1941,7 +1999,7 @@ function wopr_pickIntercepts(state, side, personality, difficulty, incomingLaunc
       const sameRegion = pool.filter(c => c.region === (m.target?.region || ""));
       const candidate = sameRegion.length ? sameRegion[0] : pool[0];
       candidate.available--;
-      const chance = wopr_interceptChance(candidate.region, m.target?.region);
+      const chance = wopr_interceptChance(candidate, m.source, m.target);
       intercepts.push({ cityId: candidate.id, missileIdx: m.idx, chance });
       totalUsable--;
       assigned++;
@@ -1998,9 +2056,13 @@ function wopr_resolveRound(state) {
       const l = launches[i];
       if (l.targetSide !== defendSide) continue;
       if (l.isBomber) {
-        // 60% reach (40% shot down by AAA). Independent of interceptor stack.
-        if (Math.random() > WOPR_BOMBER_REACH_PROB) {
-          log.push(`▸ BOMBER SHOT DOWN BY AAA — TARGET INTACT`);
+        // Distance-based AAA: closer targets are easier to reach (less time over hostile territory).
+        const attacker = (defendSide === "us") ? "ru" : "us";
+        const src = wopr_findSource(s, attacker, l.siloId);
+        const tgt = wopr_findTarget(s, l.targetSide, l.targetId);
+        const reach = wopr_bomberReach(src, tgt);
+        if (Math.random() > reach) {
+          log.push(`▸ BOMBER SHOT DOWN BY AAA [${Math.round(reach*100)}% REACH] — TARGET INTACT`);
           continue;
         }
       } else if (blocked.has(i)) {
@@ -2170,31 +2232,32 @@ function WOPR_HelpModal({ onClose }) {
           <IconRow
             swatch={<svg width={18} height={14}><circle cx={9} cy={7} r={4} fill={WOPR_C.usaCol} /></svg>}
             label="CITY"
-            desc="10/side, 2 interceptors each."
+            desc="10/side, 1–3 interceptors each."
           />
           <IconRow
             swatch={<svg width={18} height={14}><polygon points="9,1 1,12 17,12" fill={WOPR_C.siloCol} /></svg>}
             label="SILO"
-            desc="8/side × 2 missiles. Targetable."
+            desc="5–8/side × 2 missiles. Targetable."
           />
           <IconRow
             swatch={<svg width={22} height={14}><polygon points="2,7 6,3 16,3 20,7 16,11 6,11" fill={WOPR_C.subCol} /><rect x={9} y={1} width={4} height={2} fill={WOPR_C.subCol} /></svg>}
             label="SSBN"
-            desc="2/side × 2 missiles. Untargetable."
+            desc="1–2/side × 2 missiles. Untargetable."
           />
           <IconRow
             swatch={<svg width={18} height={14}><polygon points="9,2 17,11 9,8 1,11" fill={WOPR_C.bomberCol} /></svg>}
             label="BOMBER"
-            desc="3/side, 1 sortie. Un-interceptable, 60% reach."
+            desc="2–3/side, 1 sortie. Un-interceptable. Reach scales with distance."
           />
         </Section>
 
         <Section title="FLOW">
-          <div>Each round: both sides launch (blind), both assign interceptors, then resolve. Repeat until end condition.</div>
+          <div>Each round: both sides launch (blind), both assign interceptors, then resolve. Each game's arsenal is randomized — recon early.</div>
         </Section>
 
         <Section title="INTERCEPTS">
-          <div>Same-region <span style={{ color: WOPR_C.hot, fontWeight: "bold" }}>90%</span>, cross-region <span style={{ color: WOPR_C.hot, fontWeight: "bold" }}>70%</span>. Stack to compound. Cap = 20 − own_launches × 3. Bombers skip this entirely.</div>
+          <div>Chance scales with travel distance — closer launches are <span style={{ color: WOPR_C.hot, fontWeight: "bold" }}>harder</span> to intercept (less warning). Range: <span style={{ color: WOPR_C.hot, fontWeight: "bold" }}>30%–95%</span>. Same-region defenders get a small bonus. Stack interceptors per missile to compound. Cap = total − launches × 3.</div>
+          <div style={{ marginTop: 4, color: WOPR_C.amber }}>Bombers skip city interceptors entirely; they roll AAA reach (30%–85%, also distance-based).</div>
         </Section>
 
         <Section title="END">
@@ -2388,10 +2451,11 @@ function WOPR({ onBack }) {
     const city = wopr_getSide(state, side).cities.find(c => c.id === state.selectedInterceptCity);
     if (!city?.alive) return;
 
-    // Cap check
+    // Cap check (uses this side's randomized max-interceptors total)
     const ownLaunchKey = side === "us" ? "usLaunches" : "ruLaunches";
     const ownLaunchCount = state[ownLaunchKey].length;
-    const cap = Math.max(0, 20 - ownLaunchCount * 3);
+    const sideMax = wopr_getSide(state, side).maxInterceptors || 20;
+    const cap = Math.max(0, sideMax - ownLaunchCount * 3);
     if (state[interceptKey].length >= cap) return;
 
     // Per-city max: city.interceptors total, max 3 stacked per missile
@@ -2402,7 +2466,8 @@ function WOPR({ onBack }) {
 
     const launch = state[incomingKey][missileIdx];
     const target = wopr_findTarget(state, launch.targetSide, launch.targetId);
-    const chance = wopr_interceptChance(city.region, target?.region);
+    const source = wopr_findSource(state, wopr_oppSide(side), launch.siloId);
+    const chance = wopr_interceptChance(city, source, target);
 
     setState(s => ({
       ...s,
@@ -2427,11 +2492,14 @@ function WOPR({ onBack }) {
       const ownLaunchKey = side === "us" ? "usLaunches" : "ruLaunches";
       const interceptKey = side === "us" ? "usIntercepts" : "ruIntercepts";
       const incoming = s[incomingKey];
-      const cap = Math.max(0, 20 - s[ownLaunchKey].length * 3);
+      const sideMax = wopr_getSide(s, side).maxInterceptors || 20;
+      const cap = Math.max(0, sideMax - s[ownLaunchKey].length * 3);
       const cities = wopr_aliveCities(s, side).map(c => ({ ...c, available: c.interceptors }));
+      const attackerSide = wopr_oppSide(side);
       const sorted = incoming.map((l, idx) => {
         const tgt = wopr_findTarget(s, l.targetSide, l.targetId);
-        return { idx, target: tgt, value: tgt ? (tgt.pop || 0.3) : 0 };
+        const src = wopr_findSource(s, attackerSide, l.siloId);
+        return { idx, target: tgt, source: src, value: tgt ? (tgt.pop || 0.3) : 0 };
       }).sort((a, b) => b.value - a.value);
 
       const intercepts = [];
@@ -2443,7 +2511,7 @@ function WOPR({ onBack }) {
           const sameRegion = pool.filter(c => c.region === (m.target?.region || ""));
           const candidate = sameRegion.length ? sameRegion[0] : pool[0];
           candidate.available--;
-          const chance = wopr_interceptChance(candidate.region, m.target?.region);
+          const chance = wopr_interceptChance(candidate, m.source, m.target);
           intercepts.push({ cityId: candidate.id, missileIdx: m.idx, chance });
           used++;
         }
@@ -2659,10 +2727,15 @@ function WOPR({ onBack }) {
                 stroke={isSelectedIntercept ? WOPR_C.hot : "#000"}
                 strokeWidth={isSelectedIntercept ? 2 : 0.5} />
         {/* Interceptor pips */}
-        {city.alive && [0,1].map(i => (
-          <circle key={i} cx={city.x - 3 + i*5} cy={city.y - 9} r={1.6}
-                  fill={i < city.interceptors ? sideCol : WOPR_C.dimmer} />
-        ))}
+        {/* Interceptor pips: render up to 3, lit per c.interceptors. Position auto-centers for 1/2/3. */}
+        {city.alive && Array.from({ length: 3 }, (_, i) => {
+          const lit = i < city.interceptors;
+          // Centre the row of 3 pips above the city circle
+          return (
+            <circle key={i} cx={city.x - 5 + i*5} cy={city.y - 9} r={1.6}
+                    fill={lit ? sideCol : "transparent"} />
+          );
+        })}
         {/* Casualty count for destroyed cities */}
         {!city.alive && (
           <text x={city.x} y={city.y + 11} fontSize={8} fill={WOPR_C.red}
@@ -2953,7 +3026,7 @@ function WOPR({ onBack }) {
               {isInterceptPhase() && (
                 <div style={{ marginBottom: 6 }}>
                   <div style={{ fontSize: 7, color: WOPR_C.mid, letterSpacing: "0.2em", marginBottom: 3 }}>
-                    {aSide?.toUpperCase()} INTERCEPTS ({ownIntercepts.length}/{Math.max(0,20-state[launchKey].length*3)} cap):
+                    {aSide?.toUpperCase()} INTERCEPTS ({ownIntercepts.length}/{Math.max(0, (wopr_getSide(state, aSide).maxInterceptors || 20) - state[launchKey].length*3)} cap):
                   </div>
                   {ownIntercepts.length === 0 ? (
                     <div style={{ fontSize: 8, color: WOPR_C.faint }}>— NONE —</div>
@@ -3016,9 +3089,9 @@ function WOPR({ onBack }) {
             <div key={side} style={{ fontSize: 8, color: col }}>
               <div style={{ letterSpacing: "0.2em", marginBottom: 2, fontWeight: "bold" }}>{label}</div>
               <div>CITIES: {wopr_aliveCities(state, side).length}/10</div>
-              <div style={{ color: WOPR_C.siloCol }}>SILOS: {wopr_aliveSilos(state, side).length}/8</div>
-              <div style={{ color: WOPR_C.subCol }}>SUBS: {wopr_aliveSubs(state, side).length}/2</div>
-              <div style={{ color: WOPR_C.bomberCol }}>BMBR: {wopr_aliveBombers(state, side).length}/3</div>
+              <div style={{ color: WOPR_C.siloCol }}>SILOS: {wopr_aliveSilos(state, side).length}/{wopr_getSide(state, side).silos.length}</div>
+              <div style={{ color: WOPR_C.subCol }}>SUBS: {wopr_aliveSubs(state, side).length}/{wopr_getSide(state, side).subs.length}</div>
+              <div style={{ color: WOPR_C.bomberCol }}>BMBR: {wopr_aliveBombers(state, side).length}/{wopr_getSide(state, side).bombers.length}</div>
               <div style={{ color: WOPR_C.red }}>KIA: {wopr_totalCasualties(state, side).toFixed(1)}M</div>
             </div>
           ))}

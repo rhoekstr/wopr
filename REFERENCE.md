@@ -198,15 +198,17 @@ The most mechanically rich game. WarGames-themed CRT-green aesthetic. Models the
 
 ### 9.2 Triad units
 
-Each side has THREE distinct platform types:
+Each side has THREE distinct platform types. Counts are **randomized per game per side** at startup, picking randomly from the available real-world positions:
 
-| Platform | Count/side | Missiles each | Targetable? | Interceptable? | Per-round limit |
+| Platform | Count/side (random) | Missiles each | Targetable? | Interceptable? | Per-round limit |
 |---|---|---|---|---|---|
-| Silo (ICBM) | 8 | 2 | YES (preemptive strike disables) | YES | up to 2 missiles |
-| SSBN (sub) | 2 | 2 | NO | YES | up to 2 missiles |
-| Bomber | 3 | 1 | NO | NO | 1 sortie |
+| Silo (ICBM) | 5–8 | 2 | YES (preemptive strike disables) | YES | up to 2 missiles |
+| SSBN (sub) | 1–2 | 2 | NO | YES | up to 2 missiles |
+| Bomber | 2–3 | 1 | NO | NO | 1 sortie |
 
-Total per side: 8×2 + 2×2 + 3×1 = **23 launches max** if everything is fired. After firing, a source is `launched: true` and out for the rest of the game.
+Total launches per side per game varies from ~14 (minimal arsenal) to ~23 (full arsenal). After firing, a source is `launched: true` and out for the rest of the game.
+
+The randomization represents intelligence uncertainty — recon early to learn what arsenal you face this game.
 
 ### 9.3 Color codes (8-bit palette)
 
@@ -225,11 +227,13 @@ USSR cities are deliberately PINK rather than amber to avoid clashing with silo 
 
 10 per side at approximate real lat/lon. Each starts with:
 - `alive: true`
-- `interceptors: 2`
+- `interceptors`: **randomized per city per side** — 1 (25%), 2 (50%), or 3 (25%). 2 is most common.
 - `casualties: 0` (only set when destroyed)
 - `bias`: a random `1 ± 30%` perturbation, used by the AI for target ranking. Different each game; never shown.
 
 Population (in millions) is preset and shown as casualty estimates when destroyed.
+
+The total interceptor budget per side (sum of all cities' counts at game start, ~10–30) is stored on `state.{side}.maxInterceptors` and used by the per-round cap formula.
 
 ### 9.5 Regions
 
@@ -296,9 +300,16 @@ In an intercept phase, the active human side sees enemy missiles in flight:
 - **Bomber sorties cannot be intercepted** and don't appear as numbered targets — they fly through.
 - Tap own city to select an interceptor source (city pulse ring), then tap a numbered missile to assign.
 
-**Intercept chance**: 90% if interceptor city is in the same region as the target, 70% otherwise. Multiple interceptors stack — three independent rolls compound the missile-survival probability to `(1-p)^N`.
+**Intercept chance**: scales with travel distance. Closer launches give defenders less reaction time and are harder to intercept; cross-continental missiles are easier to track and intercept. Same-region defenders get a small bonus (better posture).
 
-**Intercept cap**: `max(0, 20 − own_launches × 3)` per round. Total interceptors are 10 cities × 2 = 20. Heavy offense buys lighter defense.
+```
+distNorm   = clamp(0..1, (distance − 50) / 400)
+chance     = clamp(0.30..0.95, 0.40 + 0.50 × distNorm + 0.05 × sameRegion)
+```
+
+Range is roughly **30% (point-blank, cross-region) to 95% (cross-continental, same-region)**. Multiple interceptors stack — N independent rolls compound to `1 − (1 − p)^N` survival.
+
+**Intercept cap**: `max(0, sideMax − own_launches × 3)` per round, where `sideMax` is this side's total starting interceptors. Heavy offense buys lighter defense.
 
 **Auto-assign**: two buttons (`AUTO ×1` / `AUTO ×2`) pre-fill an intercept plan: target highest-population missiles first, prefer same-region cities, stop at the cap. The human can still add or remove individual assignments before confirming.
 
@@ -310,7 +321,7 @@ Order of operations in `wopr_resolveRound`:
 2. **Intercepts**: each assigned interceptor rolls its `chance`. Successful blocks are tracked in a `Set<missileIdx>`.
 3. **Strikes resolve**:
    - Missiles in `blocked` are skipped.
-   - Bomber sorties roll an independent 60% reach check (40% AAA shoot-down).
+   - Bomber sorties roll an independent **distance-based AAA reach check** (~30%–85%; closer targets reach more reliably, farther targets spend more time over hostile airspace and are more often shot down).
    - Surviving strikes destroy the targeted city (with 50–90% population casualties) or silo.
 4. **Mark fired sources** — silos, subs, bombers all flagged `launched: true`.
 5. **DEFCON adjustment** — see §9.12.
