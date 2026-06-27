@@ -2158,22 +2158,24 @@ function wopr_resolveRound(state) {
   s.usPassedLast = s.usLaunches.length === 0;
   s.ruPassedLast = s.ruLaunches.length === 0;
 
-  // Step 6: DEFCON — start at 3, climb to 5 on launches, decay toward 2 in quiet rounds
+  // Step 6: DEFCON — start at 3, drop toward 1 on launches, rise toward 5 in quiet rounds
+  // Real DEFCON: 5 = peacetime, 1 = nuclear war imminent.
   const totalLaunched = s.usLaunches.length + s.ruLaunches.length;
-  const upLabels = {
-    4: "DEFCON 4 — ELEVATED ALERT",
-    5: "DEFCON 5 — MAXIMUM READINESS",
+  const escalateLabels = {
+    2: "DEFCON 2 — FORCES READY",
+    1: "DEFCON 1 — MAXIMUM ALERT",
   };
-  const downLabels = {
+  const deescalateLabels = {
     3: "DEFCON 3 — STANDING DOWN",
-    2: "DEFCON 2 — DE-ESCALATION",
+    4: "DEFCON 4 — REDUCED READINESS",
+    5: "DEFCON 5 — DE-ESCALATION",
   };
-  if (totalLaunched > 0 && s.defcon < 5) {
-    s.defcon++;
-    if (upLabels[s.defcon]) log.push(`▸ ${upLabels[s.defcon]}`);
-  } else if (totalLaunched === 0 && s.defcon > 2) {
+  if (totalLaunched > 0 && s.defcon > 1) {
     s.defcon--;
-    if (downLabels[s.defcon]) log.push(`▸ ${downLabels[s.defcon]}`);
+    if (escalateLabels[s.defcon]) log.push(`▸ ${escalateLabels[s.defcon]}`);
+  } else if (totalLaunched === 0 && s.defcon < 5) {
+    s.defcon++;
+    if (deescalateLabels[s.defcon]) log.push(`▸ ${deescalateLabels[s.defcon]}`);
   }
 
   // Clear launch queues for next round
@@ -2191,8 +2193,8 @@ function wopr_resolveRound(state) {
   const usGone = wopr_isDestroyed(s, "us");
   const ruGone = wopr_isDestroyed(s, "ru");
   const noSources = wopr_aliveSources(s, "us").length === 0 && wopr_aliveSources(s, "ru").length === 0;
-  // Peace via de-escalation: DEFCON has decayed to 2 (which only happens after quiet round(s)).
-  const deescalated = s.defcon === 2 && totalLaunched === 0;
+  // Peace via de-escalation: DEFCON has risen to 5 (which only happens after quiet round(s)).
+  const deescalated = s.defcon === 5 && totalLaunched === 0;
   if (usGone || ruGone || noSources) {
     s.phase = "gameover";
     if (usGone && ruGone) {
@@ -2208,7 +2210,7 @@ function wopr_resolveRound(state) {
     s.phase = "gameover";
     const totalCas = (wopr_totalCasualties(s,"us") + wopr_totalCasualties(s,"ru")).toFixed(1);
     s.log.push("",
-      "DEFCON 2 — DE-ESCALATION ACHIEVED.",
+      "DEFCON 5 — DE-ESCALATION ACHIEVED.",
       "THE ONLY WINNING MOVE IS NOT TO PLAY.",
       "STAND DOWN INITIATED.",
       `▸ TOTAL CASUALTIES: ${totalCas}M`);
@@ -2221,13 +2223,13 @@ function wopr_resolveRound(state) {
 
 // ── DEFCON bar ────────────────────────────────────────────────────────────────
 function WOPR_DefconBar({ level }) {
-  // Game uses inverted-DEFCON semantics: higher number = higher tension. 5 = launches in flight, 2 = peace.
-  const tone = level >= 5 ? WOPR_C.red : level === 4 ? WOPR_C.amber : WOPR_C.bright;
+  // Real DEFCON semantics: lower number = higher tension. 1 = nuclear war, 5 = peacetime.
+  const tone = level <= 1 ? WOPR_C.red : level === 2 ? WOPR_C.amber : WOPR_C.bright;
   return (
     <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
       <span style={{ fontSize: 8, color: WOPR_C.mid, letterSpacing: "0.2em", marginRight: 6 }}>DEFCON</span>
       {[1,2,3,4,5].map(n => {
-        const lit = n <= level;
+        const lit = n <= (6 - level);
         return <div key={n} style={{ width: 14, height: 8,
           background: lit ? tone : WOPR_C.dimmer,
           opacity: lit ? 1 : 0.5,
@@ -2320,7 +2322,7 @@ function WOPR_HelpModal({ onClose }) {
           <div>• Cities all destroyed → victory.</div>
           <div>• Both annihilated → mutual.</div>
           <div>• All sources expended → stalemate.</div>
-          <div>• DEFCON 2 (quiet rounds) → peace.</div>
+          <div>• DEFCON 5 (quiet rounds) → peace.</div>
         </Section>
 
         <button onClick={onClose} style={{
